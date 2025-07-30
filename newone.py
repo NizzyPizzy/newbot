@@ -2,14 +2,15 @@ import os
 import requests
 from datetime import datetime, timedelta
 from collections import defaultdict
-from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-# Загрузка токенов из .env
-load_dotenv()
+# Получаем токены из переменных окружения (например, Railway Variables)
 HUGGINGFACE_API_TOKEN = os.getenv("HF_TOKEN")
-TELEGRAM_BOT_TOKEN = "7809664280:AAFxh7WtpuO8Kmplek6bMpP3bus_ctnoovs"
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN") or "7809664280:AAFxh7WtpuO8Kmplek6bMpP3bus_ctnoovs"
+
+if not HUGGINGFACE_API_TOKEN:
+    raise RuntimeError("Ошибка: переменная окружения HF_TOKEN не установлена!")
 
 # Ограничения генераций
 MAX_FREE_GENERATIONS = 3
