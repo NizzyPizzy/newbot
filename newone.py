@@ -1,8 +1,9 @@
 import requests
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+import os
 
-HUGGINGFACE_API_TOKEN = "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"
+HUGGINGFACE_API_TOKEN = os.environ["HF_TOKEN"]
 TELEGRAM_BOT_TOKEN = "7809664280:AAFxh7WtpuO8Kmplek6bMpP3bus_ctnoovs"
 
 async def generate_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
