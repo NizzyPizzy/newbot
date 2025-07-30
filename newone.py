@@ -9,7 +9,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 # Загрузка токенов из .env
 load_dotenv()
 HUGGINGFACE_API_TOKEN = os.getenv("HF_TOKEN")
-TELEGRAM_BOT_TOKEN = os.getenv("7809664280:AAFxh7WtpuO8Kmplek6bMpP3bus_ctnoovs")
+TELEGRAM_BOT_TOKEN = "7809664280:AAFxh7WtpuO8Kmplek6bMpP3bus_ctnoovs"
 
 # Ограничения генераций
 MAX_FREE_GENERATIONS = 3
