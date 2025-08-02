@@ -140,19 +140,26 @@ async def me(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data = user_limits[user_id]
     reset_if_needed(user_data)
 
-    remaining = MAX_FREE_GENERATIONS - user_data["count"]
-    next_reset = user_data["last_reset"] + timedelta(days=1)
-    time_left = next_reset - datetime.now()
+    if user_data.get("premium", False):
+        await update.message.reply_text(
+            f"👤 Статус: Премиум-пользователь 💎\n"
+            f"У тебя неограниченное количество генераций!"
+        )
+    else:
+        remaining = MAX_FREE_GENERATIONS - user_data["count"]
+        next_reset = user_data["last_reset"] + timedelta(days=1)
+        time_left = next_reset - datetime.now()
 
-    hours, remainder = divmod(int(time_left.total_seconds()), 3600)
-    minutes = remainder // 60
+        hours, remainder = divmod(int(time_left.total_seconds()), 3600)
+        minutes = remainder // 60
 
-    await update.message.reply_text(
-        f"👤 Статус:\n"
-        f"Сегодня использовано: {user_data['count']} / {MAX_FREE_GENERATIONS}\n"
-        f"Осталось: {remaining} генераций\n"
-        f"⏳ До обновления: {hours} ч {minutes} мин"
-    )
+        await update.message.reply_text(
+            f"👤 Статус:\n"
+            f"Сегодня использовано: {user_data['count']} / {MAX_FREE_GENERATIONS}\n"
+            f"Осталось: {remaining} генераций\n"
+            f"⏳ До обновления: {hours} ч {minutes} мин"
+        )
+
 
 # Обработка graceful shutdown
 def graceful_exit(*args):
