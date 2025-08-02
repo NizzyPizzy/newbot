@@ -4,17 +4,29 @@ import requests
 from datetime import datetime, timedelta
 from collections import defaultdict
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    ContextTypes,
+    MessageHandler,
+    filters,
+)
 import signal
 
-# Получаем токены из переменных окружения
-HUGGINGFACE_API_TOKEN = os.environ["HF_TOKEN"]
+# Токены из переменных окружения
+HF_TOKEN = os.environ["HF_TOKEN"]
+HF_API_URL_TEXT = "https://api-inference.huggingface.co/models/sberbank-ai/rugpt3small_based_on_gpt2"
+HF_API_URL_IMAGE = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0"
 TELEGRAM_BOT_TOKEN = "7809664280:AAFxh7WtpuO8Kmplek6bMpP3bus_ctnoovs"
 
-if not HUGGINGFACE_API_TOKEN:
-    raise RuntimeError("Ошибка: переменная окружения HF_TOKEN не установлена!")
 
-# Файл для хранения данных пользователей
+if not HF_TOKEN or not TELEGRAM_BOT_TOKEN:
+    raise RuntimeError("Ошибка: переменные окружения HF_TOKEN или TG_BOT_TOKEN не установлены!")
+
+HEADERS = {"Authorization": f"Bearer {HF_TOKEN}"}
+
+# --- Логика для генерации изображений с лимитами и сохранением данных ---
+
 USER_DATA_FILE = "user_data.json"
 MAX_FREE_GENERATIONS = 3
 
@@ -30,7 +42,6 @@ def load_user_data():
     except (FileNotFoundError, json.JSONDecodeError):
         return defaultdict(lambda: {"count": 0, "last_reset": datetime.now(), "premium": False})
 
-
 def save_user_data():
     with open(USER_DATA_FILE, "w") as f:
         json.dump({
@@ -41,16 +52,24 @@ def save_user_data():
             } for uid, info in user_limits.items()
         }, f, indent=2)
 
-
-user_limits = load_user_data()
-
 def reset_if_needed(user_data):
     if datetime.now() - user_data["last_reset"] > timedelta(days=1):
         user_data["count"] = 0
         user_data["last_reset"] = datetime.now()
         save_user_data()
 
-# Команда генерации изображения
+user_limits = load_user_data()
+
+# --- Обработчики Telegram ---
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "👋 Привет! Я бот для генерации изображений и общения.\n\n"
+        "Команды:\n"
+        "/generate [текст] — сгенерировать изображение\n"
+        "Просто напиши любое сообщение — я отвечу текстом."
+    )
+
 async def generate_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.effective_user.id)
     user_data = user_limits[user_id]
@@ -58,22 +77,17 @@ async def generate_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not user_data.get("premium", False) and user_data["count"] >= MAX_FREE_GENERATIONS:
         await update.message.reply_text(
-            "🚫 Вы использовали лимит бесплатных генераций на сегодня.\n"
+            "🚫 Лимит бесплатных генераций на сегодня исчерпан.\n"
             "Оформите подписку: /buy или активируйте промокод: /promo"
         )
         return
 
-    prompt = " ".join(context.args) or "a futuristic city at sunset"
+    prompt = " ".join(context.args) if context.args else "a futuristic city at sunset"
     await update.message.reply_text("Генерирую изображение... ⏳")
 
-    # ... остальной код ...
-
-
-    print(f"[{datetime.now()}] User {user_id} prompt: {prompt}")
-
     response = requests.post(
-        "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0",
-        headers={"Authorization": f"Bearer {HUGGINGFACE_API_TOKEN}"},
+        HF_API_URL_IMAGE,
+        headers=HEADERS,
         json={"inputs": prompt}
     )
 
@@ -87,19 +101,6 @@ async def generate_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_photo(photo=image_data, caption="Вот твоё изображение! 🎨")
 
-# Команда /start
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "👋 Привет! Я — бот для генерации изображений по описанию.\n\n"
-        "Напиши команду:\n"
-        "`/generate [твой запрос]`\n\n"
-        "Пример: `/generate кот в очках в космосе`\n\n"
-        "🆓 Бесплатно: 3 генерации в день\n"
-        "💎 Хочешь больше? Команда /buy или /premium [премиум-код]\n"
-        "📊 Статус: /me",
-        parse_mode="Markdown"
-    )
-
 VALID_PROMOCODES = {"SUPERPREMIUM2025", "VIPACCESS"}
 
 async def promo(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -107,7 +108,7 @@ async def promo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data = user_limits[user_id]
 
     if not context.args:
-        await update.message.reply_text("❗️ Пожалуйста, укажи промокод после команды.\nПример: /promo SUPERPREMIUM2025")
+        await update.message.reply_text("❗️ Укажи промокод после команды.\nПример: /promo SUPERPREMIUM2025")
         return
 
     code = context.args[0].strip().upper()
@@ -122,8 +123,6 @@ async def promo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("❌ Неверный промокод. Попробуй ещё раз.")
 
-
-# Команда /buy
 async def buy(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "💎 *Тарифы:*\n"
@@ -134,7 +133,6 @@ async def buy(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown"
     )
 
-# Команда /me
 async def me(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.effective_user.id)
     user_data = user_limits[user_id]
@@ -160,25 +158,48 @@ async def me(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"⏳ До обновления: {hours} ч {minutes} мин"
         )
 
+# --- Функция для генерации текста через ruGPT ---
 
-# Обработка graceful shutdown
-def graceful_exit(*args):
+def generate_response(prompt: str) -> str:
+    payload = {"inputs": prompt}
+    response = requests.post(HF_API_URL_TEXT, headers=HEADERS, json=payload)
+    if response.status_code == 200:
+        try:
+            return response.json()[0]["generated_text"]
+        except Exception:
+            return "⚠️ Ошибка в ответе модели."
+    else:
+        return f"⚠️ Ошибка API: {response.status_code}"
+
+async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_input = update.message.text
+    response = generate_response(user_input)
+    await update.message.reply_text(response)
+
+# --- Graceful shutdown ---
+
+def save_and_exit(*args):
     print("Сохраняю данные перед завершением...")
     save_user_data()
     exit(0)
 
-signal.signal(signal.SIGINT, graceful_exit)
-signal.signal(signal.SIGTERM, graceful_exit)
+signal.signal(signal.SIGINT, save_and_exit)
+signal.signal(signal.SIGTERM, save_and_exit)
 
-# Запуск бота
+# --- Запуск бота ---
+
 if __name__ == "__main__":
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
-    app.add_handler(CommandHandler("promo", promo))
 
-    app.add_handler(CommandHandler("start", start))
+    # Команды для генерации изображений
     app.add_handler(CommandHandler("generate", generate_image))
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("promo", promo))
     app.add_handler(CommandHandler("buy", buy))
     app.add_handler(CommandHandler("me", me))
 
-    print("Бот запущен...")
+    # Обработка всех текстовых сообщений (кроме команд) через ruGPT
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, reply))
+
+    print("🤖 Бот запущен!")
     app.run_polling()
