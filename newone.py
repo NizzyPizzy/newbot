@@ -15,7 +15,8 @@ import signal
 
 # Токены из переменных окружения
 HF_TOKEN = os.environ["HF_TOKEN"]
-HF_API_URL_TEXT = "https://api-inference.huggingface.co/models/DeepPavlov/rudialogpt3small_based_on_gpt2"
+HF_API_URL_TEXT = "https://api-inference.huggingface.co/models/ai-forever/rugpt3medium_based_on_gpt2"
+
 
 HF_API_URL_IMAGE = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0"
 TELEGRAM_BOT_TOKEN = "7809664280:AAFxh7WtpuO8Kmplek6bMpP3bus_ctnoovs"
