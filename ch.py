@@ -1,43 +1,35 @@
-from telegram import Bot, Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters
+from telegram import Update
+from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
 import requests
-import json
 
-# Токен твоего Telegram бота
-TELEGRAM_TOKEN = '7809664280:AAFxh7WtpuO8Kmplek6bMpP3bus_ctnoovs'
+HUGGINGFACE_API_TOKEN = os.environ["HF_TOKEN"]
+HF_API_URL = "https://api-inference.huggingface.co/models/sberbank-ai/rugpt3small_based_on_gpt2"
+TG_BOT_TOKEN = "7809664280:AAFxh7WtpuO8Kmplek6bMpP3bus_ctnoovs"
 
-async def start(update: Update, context):
-    await update.message.reply_text("Привет! Я подключён к GigaChat.")
+headers = {"Authorization": f"Bearer {HF_TOKEN}"}
 
-async def handle_message(update: Update, context):
-    # Пошли сообщение от пользователя ко мне (API)
-    response = requests.post(
-        'https://gigachat-core.sber.ru/api/v1/chat/completions',
-        headers={
-            'Content-Type': 'application/json',
-            'Authorization': f'Bearer YOUR_GIGACHAT_API_KEY',  # сюда вставь ключ API GigaChat
-        },
-        data=json.dumps({
-            'model': 'general',
-            'messages': [
-                {'role': 'system', 'content': 'Ты работаешь внутри Telegram бота.'},
-                {'role': 'user', 'content': update.message.text}
-            ]
-        })
-    )
-    
-    if response.status_code != 200:
-        return await update.message.reply_text('Что-то пошло не так.')
-        
-    reply_content = response.json()['choices'][0]['message']['content']
-    await update.message.reply_text(reply_content)
+# Функция генерации текста через Hugging Face API
+def generate_response(prompt: str) -> str:
+    payload = {"inputs": prompt}
+    response = requests.post(HF_API_URL, headers=headers, json=payload)
 
-if __name__ == '__main__':
-    application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+    if response.status_code == 200:
+        try:
+            return response.json()[0]["generated_text"]
+        except:
+            return "⚠️ Ошибка в ответе модели."
+    else:
+        return f"⚠️ Ошибка API: {response.status_code}"
 
-    # Добавляем обработчики команд
-    application.add_handler(CommandHandler('start', start))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+# Обработка сообщений Telegram
+async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_input = update.message.text
+    response = generate_response(user_input)
+    await update.message.reply_text(response)
 
-    print("Telegram bot is running...")
-    application.run_polling()
+# Основной запуск
+if __name__ == "__main__":
+    app = ApplicationBuilder().token(TG_BOT_TOKEN).build()
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, reply))
+    print("🤖 Бот запущен!")
+    app.run_polling()
