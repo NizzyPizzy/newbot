@@ -56,19 +56,18 @@ async def generate_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data = user_limits[user_id]
     reset_if_needed(user_data)
 
-  if not user_data.get("premium", False) and user_data["count"] >= MAX_FREE_GENERATIONS:
-    await update.message.reply_text(
-        "🚫 Вы использовали лимит бесплатных генераций на сегодня.\n"
-        "Оформите подписку: /buy или активируйте промокод: /promo"
-    )
-    return
-
-
-    # Далее генерация изображения как раньше...
-
+    if not user_data.get("premium", False) and user_data["count"] >= MAX_FREE_GENERATIONS:
+        await update.message.reply_text(
+            "🚫 Вы использовали лимит бесплатных генераций на сегодня.\n"
+            "Оформите подписку: /buy или активируйте промокод: /promo"
+        )
+        return
 
     prompt = " ".join(context.args) or "a futuristic city at sunset"
     await update.message.reply_text("Генерирую изображение... ⏳")
+
+    # ... остальной код ...
+
 
     print(f"[{datetime.now()}] User {user_id} prompt: {prompt}")
 
