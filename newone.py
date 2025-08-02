@@ -8,8 +8,8 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 import signal
 
 # Получаем токены из переменных окружения
-HUGGINGFACE_API_TOKEN = os.getenv("HF_TOKEN")
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN") or "7809664280:AAFxh7WtpuO8Kmplek6bMpP3bus_ctnoovs"
+HUGGINGFACE_API_TOKEN = os.environ["HF_TOKEN"]
+TELEGRAM_BOT_TOKEN = "7809664280:AAFxh7WtpuO8Kmplek6bMpP3bus_ctnoovs"
 
 if not HUGGINGFACE_API_TOKEN:
     raise RuntimeError("Ошибка: переменная окружения HF_TOKEN не установлена!")
